@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="English IPA">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>English IPA · 英语学习</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-light">
+  <header class="topbar">
+    <div class="brand">English <span>IPA</span></div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="query">查询</button>
+      <button class="tab" data-tab="chart">音素表</button>
+      <button class="tab" data-tab="library">我的</button>
+      <button class="tab" data-tab="settings">设置</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-query" class="panel active">
+      <div class="search-card">
+        <textarea id="input" rows="3" placeholder="输入英文单词或句子，例如 hello / How are you?"></textarea>
+        <div class="search-row">
+          <span class="hint">单词走词典，句子走翻译；最多 500 字符</span>
+          <button id="analyze-btn" class="btn primary">查询</button>
+        </div>
+      </div>
+      <div id="query-status" class="status"></div>
+      <div id="result"></div>
+    </section>
+
+    <section id="tab-chart" class="panel">
+      <div class="chart-toolbar">
+        <input id="chart-search" class="input" placeholder="搜索音素或例词">
+        <div class="segmented">
+          <button class="seg active" data-view="grid">交互音素表</button>
+          <button class="seg" data-view="ipa">美式音标表</button>
+        </div>
+      </div>
+      <div id="chart-body"></div>
+    </section>
+
+    <section id="tab-library" class="panel">
+      <div class="library-head">
+        <div class="segmented" id="library-segments">
+          <button class="seg active" data-segment="history">历史</button>
+          <button class="seg" data-segment="wordbook">生词本</button>
+          <button class="seg" data-segment="favorites">收藏</button>
+        </div>
+        <button class="link" id="to-settings">导入导出</button>
+      </div>
+      <div id="library-body"></div>
+    </section>
+
+    <section id="tab-settings" class="panel">
+      <div class="card">
+        <h3>视觉风格</h3>
+        <div class="chips" id="theme-row">
+          <button class="chip" data-theme="light">A 清爽</button>
+          <button class="chip" data-theme="paper">B 纸质</button>
+          <button class="chip" data-theme="dark">C 暗色</button>
+          <button class="chip" data-theme="auto">D 跟随系统</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>导出</h3>
+        <div class="chips" id="export-scopes">
+          <label class="check"><input type="checkbox" value="wordbook" checked> 生词本</label>
+          <label class="check"><input type="checkbox" value="history" checked> 历史</label>
+          <label class="check"><input type="checkbox" value="favorites" checked> 收藏</label>
+        </div>
+        <div class="chips">
+          <label class="check"><input type="radio" name="format" value="json" checked> JSON</label>
+          <label class="check"><input type="radio" name="format" value="csv"> CSV</label>
+        </div>
+        <button id="export-btn" class="btn primary">下载导出文件</button>
+      </div>
+
+      <div class="card">
+        <h3>导入</h3>
+        <button id="import-btn" class="btn">选择文件</button>
+        <div id="import-info" class="muted"></div>
+      </div>
+
+      <div class="card">
+        <h3>数据</h3>
+        <button id="clear-btn" class="btn danger">清空全部数据</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="phoneme-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <span id="modal-symbol" class="modal-symbol"></span>
+        <button class="icon" data-close>×</button>
+      </div>
+      <div id="modal-tip" class="modal-tip"></div>
+      <div class="modal-title">例词</div>
+      <div id="modal-examples"></div>
+      <div class="modal-title">常见拼写</div>
+      <div id="modal-spell" class="muted"></div>
+      <button id="modal-chart" class="btn primary">在音素表中查看</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.bundle.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
