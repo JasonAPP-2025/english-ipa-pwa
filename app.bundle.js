@@ -1750,11 +1750,11 @@ ${body}` : ""}`;
       const list = items.filter((item) => item.type === group.key);
       if (!list.length) return "";
       return `<div class="group"><div class="group-title">${group.title}</div>${list.map(
-        (item) => `<div class="row">
+        (item) => `<button class="row ipa-row" data-symbol="${esc(item.symbol)}">
             <span class="symbol">${esc(item.symbol)}</span>
             <span class="example-word">${esc(item.examples[0].en)}</span>
             <span class="spelling">${esc(item.spellText)}</span>
-          </div>`
+          </button>`
       ).join("")}</div>`;
     }).join("")}</div>`;
   }

@@ -390,6 +390,18 @@ main {
   padding: 9px 0;
   border-bottom: 1px solid var(--border);
 }
+.ipa-row {
+  width: 100%;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ipa-row:active { background: var(--primary-soft); }
 .ipa-table .symbol { width: 56px; font-size: 20px; color: var(--ipa-text); }
 .ipa-table .example-word { flex: 1; }
 .ipa-table .spelling { color: var(--muted); font-size: 13px; }

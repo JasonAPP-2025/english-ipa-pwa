@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <title>English IPA · 英语学习</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body class="theme-light">
   <header class="topbar">
@@ -121,11 +121,17 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="app.bundle.js"></script>
+  <script src="app.bundle.js?v=4"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () {
         navigator.serviceWorker.register("sw.js").catch(function () {});
+        navigator.serviceWorker.addEventListener("controllerchange", function () {
+          if (!window.__swReloaded) {
+            window.__swReloaded = true;
+            window.location.reload();
+          }
+        });
       });
     }
   </script>
