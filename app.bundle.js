@@ -2525,7 +2525,7 @@ ${body}` : ""}`;
   }
   function init() {
     const version = $("#brand-version");
-    if (version) version.textContent = `v${VERSION}`;
+    if (version) version.textContent = ` v${VERSION}`;
     initTheme();
     loadPhonemes();
     bindEvents();
