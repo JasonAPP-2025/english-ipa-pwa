@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <title>English IPA · 英语学习</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body class="theme-light">
   <header class="topbar">
@@ -133,17 +133,23 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="app.bundle.js?v=7"></script>
+  <script src="app.bundle.js?v=8"></script>
   <script>
     if ("serviceWorker" in navigator) {
+      var hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        // 首次安装时不刷新，避免打断正在输入的内容；只在新版本接管时刷新
+        if (!hadController) {
+          hadController = true;
+          return;
+        }
+        if (!window.__swReloaded) {
+          window.__swReloaded = true;
+          window.location.reload();
+        }
+      });
       window.addEventListener("load", function () {
         navigator.serviceWorker.register("sw.js").catch(function () {});
-        navigator.serviceWorker.addEventListener("controllerchange", function () {
-          if (!window.__swReloaded) {
-            window.__swReloaded = true;
-            window.location.reload();
-          }
-        });
       });
     }
   </script>
