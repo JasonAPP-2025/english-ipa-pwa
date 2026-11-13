@@ -1680,7 +1680,7 @@ ${body}` : ""}`;
   // src/version.js
   var require_version = __commonJS({
     "src/version.js"(exports, module) {
-      module.exports = { VERSION: "9.2026.11.13" };
+      module.exports = { VERSION: "10.2026.11.13" };
     }
   });
 
