@@ -1293,6 +1293,152 @@ ${body}` : ""}`;
     }
   });
 
+  // src/services/phoneme-audio.js
+  var require_phoneme_audio = __commonJS({
+    "src/services/phoneme-audio.js"(exports, module) {
+      var audio2 = require_audio();
+      var REMOTE_BASE = "https://pronounceonline.com/mp3/usa_pronounce";
+      var CACHE_NAME = "english-ipa-phoneme-audio";
+      var NUMBERS = {
+        iy: 1,
+        ih: 2,
+        schwa: 3,
+        eh: 4,
+        ae: 5,
+        aa: 6,
+        ao: 7,
+        uw: 8,
+        uh: 9,
+        ah: 10,
+        er: 11,
+        err: 12,
+        ey: 13,
+        ow: 14,
+        ay: 15,
+        aw: 16,
+        oy: 17,
+        ir: 18,
+        ar: 21,
+        p: 23,
+        t: 24,
+        k: 25,
+        f: 26,
+        s: 27,
+        th: 28,
+        sh: 29,
+        h: 30,
+        ch: 31,
+        b: 32,
+        d: 33,
+        g: 34,
+        v: 35,
+        z: 36,
+        dh: 37,
+        zh: 38,
+        r: 39,
+        jh: 40,
+        m: 41,
+        n: 42,
+        ng: 43,
+        w: 44,
+        y: 45,
+        l: 46
+      };
+      function localUrl(id) {
+        return `audio/pronounce/${id}.mp3`;
+      }
+      function legacyUrl(id) {
+        return `audio/phonemes/${id}.mp3`;
+      }
+      function remoteUrl(id) {
+        const number = NUMBERS[id];
+        return number ? `${REMOTE_BASE}/${number}.mp3` : "";
+      }
+      function supported() {
+        return typeof caches !== "undefined";
+      }
+      async function isCached(id) {
+        if (!supported()) return false;
+        try {
+          const hit = await caches.match(localUrl(id));
+          return Boolean(hit);
+        } catch (error) {
+          return false;
+        }
+      }
+      async function cacheOne(id) {
+        if (!supported()) throw new Error("NO_CACHE_API");
+        const cache2 = await caches.open(CACHE_NAME);
+        await cache2.add(new Request(localUrl(id), { cache: "reload" }));
+      }
+      async function cacheMany(ids, onProgress) {
+        const total = ids.length;
+        let done = 0;
+        for (const id of ids) {
+          try {
+            await cacheOne(id);
+          } catch (error) {
+          }
+          done += 1;
+          if (onProgress) onProgress(done, total);
+        }
+        return done;
+      }
+      async function cachedCount(ids) {
+        let count = 0;
+        for (const id of ids) {
+          if (await isCached(id)) count += 1;
+        }
+        return count;
+      }
+      async function clearAll2() {
+        if (!supported()) return 0;
+        let removed = 0;
+        const names = await caches.keys();
+        for (const name of names) {
+          const cache2 = await caches.open(name);
+          const requests = await cache2.keys();
+          const targets = requests.filter(
+            (request) => /\/audio\/pronounce\//.test(request.url)
+          );
+          for (const request of targets) {
+            await cache2.delete(request);
+            removed += 1;
+          }
+        }
+        return removed;
+      }
+      function play(id, handlers) {
+        const options = handlers || {};
+        const urls = [localUrl(id), remoteUrl(id), legacyUrl(id)].filter(Boolean);
+        const attempt = (index) => {
+          if (index >= urls.length) {
+            if (options.onError) options.onError(new Error("NO_AUDIO"));
+            return;
+          }
+          audio2.play(urls[index], {
+            onEnd: options.onEnd,
+            onError: () => attempt(index + 1)
+          });
+        };
+        attempt(0);
+      }
+      module.exports = {
+        CACHE_NAME,
+        NUMBERS,
+        localUrl,
+        remoteUrl,
+        legacyUrl,
+        isCached,
+        cacheOne,
+        cacheMany,
+        cachedCount,
+        clearAll: clearAll2,
+        play
+      };
+    }
+  });
+
   // src/services/ipa.js
   var require_ipa = __commonJS({
     "src/services/ipa.js"(exports, module) {
@@ -1548,6 +1694,7 @@ ${body}` : ""}`;
   var storage = require_storage();
   var importer = require_import_export();
   var audio = require_audio();
+  var phonemeAudio = require_phoneme_audio();
   var { tokenizeIpa } = require_ipa();
   var { exportFile, pickTextFile } = require_capacitor();
   var { PHONEMES } = require_phonemes();
@@ -1817,9 +1964,17 @@ ${body}` : ""}`;
   function playPhoneme(symbol) {
     const item = state.phonemeMap[symbol];
     if (!item) return;
-    audio.play(item.audio, {
+    phonemeAudio.play(item.id, {
       onError: () => audio.play(audio.youdaoUrl(item.examples[0].en))
     });
+    refreshModalAudioStatus(item);
+  }
+  async function refreshModalAudioStatus(item) {
+    const status = $("#modal-audio-status");
+    if (!status) return;
+    const cached = await phonemeAudio.isCached(item.id);
+    if (state.modalSymbol !== item.symbol) return;
+    status.textContent = cached ? "\u5DF2\u4FDD\u5B58\u5230\u672C\u673A\uFF0C\u79BB\u7EBF\u4E5F\u80FD\u64AD\u653E" : "\u5728\u7EBF\u64AD\u653E\uFF1B\u70B9\u300C\u4E0B\u8F7D\u5230\u672C\u5730\u300D\u53EF\u79BB\u7EBF\u4F7F\u7528";
   }
   function closeModal() {
     $("#phoneme-modal").classList.add("hidden");
@@ -1945,7 +2100,7 @@ ${body}` : ""}`;
         next();
         return;
       }
-      audio.play(item.audio, {
+      phonemeAudio.play(item.id, {
         onEnd: next,
         onError: next
       });
@@ -2313,9 +2468,60 @@ ${body}` : ""}`;
     $("#modal-play").addEventListener("click", () => {
       if (state.modalSymbol) playPhoneme(state.modalSymbol);
     });
+    $("#modal-download").addEventListener("click", downloadModalAudio);
+    $("#audio-download-all").addEventListener("click", downloadAllAudio);
+    $("#audio-clear").addEventListener("click", clearAudioCache);
     $("#modal-chart").addEventListener("click", () => {
       if (state.modalSymbol) highlightPhoneme(state.modalSymbol);
     });
+  }
+  function phonemeIds() {
+    return state.phonemes.map((item) => item.id);
+  }
+  async function refreshAudioSettings() {
+    const status = $("#audio-status");
+    if (!status) return;
+    const ids = phonemeIds();
+    const count = await phonemeAudio.cachedCount(ids);
+    status.textContent = `\u5DF2\u7F13\u5B58 ${count} / ${ids.length} \u4E2A\u97F3\u7D20\u97F3\u9891`;
+  }
+  async function downloadModalAudio(event) {
+    const item = state.phonemeMap[state.modalSymbol];
+    if (!item) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "\u4E0B\u8F7D\u4E2D\u2026";
+    try {
+      await phonemeAudio.cacheOne(item.id);
+      toast("\u5DF2\u4E0B\u8F7D\u5230\u672C\u673A");
+    } catch (error) {
+      toast("\u4E0B\u8F7D\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC");
+    }
+    button.disabled = false;
+    button.textContent = "\u4E0B\u8F7D\u5230\u672C\u5730";
+    refreshModalAudioStatus(item);
+    refreshAudioSettings();
+  }
+  async function downloadAllAudio() {
+    const button = $("#audio-download-all");
+    const progress = $("#audio-progress");
+    const ids = phonemeIds();
+    button.disabled = true;
+    button.textContent = "\u4E0B\u8F7D\u4E2D\u2026";
+    progress.textContent = `0 / ${ids.length}`;
+    await phonemeAudio.cacheMany(ids, (done, total) => {
+      progress.textContent = `${done} / ${total}`;
+    });
+    button.disabled = false;
+    button.textContent = "\u4E00\u952E\u4E0B\u8F7D\u5168\u90E8";
+    await refreshAudioSettings();
+    progress.textContent = "\u5168\u90E8\u5B8C\u6210";
+    toast("\u97F3\u7D20\u97F3\u9891\u5DF2\u4FDD\u5B58\u5230\u672C\u673A");
+  }
+  async function clearAudioCache() {
+    const removed = await phonemeAudio.clearAll();
+    await refreshAudioSettings();
+    toast(`\u5DF2\u6E05\u9664 ${removed} \u4E2A\u97F3\u9891`);
   }
   function init() {
     const version = $("#brand-version");
@@ -2324,6 +2530,7 @@ ${body}` : ""}`;
     loadPhonemes();
     bindEvents();
     switchTab("query");
+    refreshAudioSettings();
   }
   document.addEventListener("DOMContentLoaded", init);
 })();

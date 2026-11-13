@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -11,27 +11,27 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>English IPA 路 鑻辫瀛︿範</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <title>English IPA · 英语学习</title>
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body class="theme-light">
   <header class="topbar">
     <div class="brand">English <span>IPA</span><small id="brand-version" class="brand-version"></small></div>
     <nav class="tabs">
-      <button class="tab active" data-tab="query">鏌ヨ</button>
-      <button class="tab" data-tab="chart">闊崇礌琛?/button>
-      <button class="tab" data-tab="library">鎴戠殑</button>
-      <button class="tab" data-tab="settings">璁剧疆</button>
+      <button class="tab active" data-tab="query">查询</button>
+      <button class="tab" data-tab="chart">音素表</button>
+      <button class="tab" data-tab="library">我的</button>
+      <button class="tab" data-tab="settings">设置</button>
     </nav>
   </header>
 
   <main>
     <section id="tab-query" class="panel active">
       <div class="search-card">
-        <textarea id="input" rows="3" placeholder="杈撳叆鑻辨枃鍗曡瘝鎴栧彞瀛愶紝渚嬪 hello / How are you?"></textarea>
+        <textarea id="input" rows="3" placeholder="输入英文单词或句子，例如 hello / How are you?"></textarea>
         <div class="search-row">
-          <span class="hint">鍗曡瘝璧拌瘝鍏革紝鍙ュ瓙璧扮炕璇戯紱鏈€澶?500 瀛楃</span>
-          <button id="analyze-btn" class="btn primary">鏌ヨ</button>
+          <span class="hint">单词走词典，句子走翻译；最多 500 字符</span>
+          <button id="analyze-btn" class="btn primary">查询</button>
         </div>
       </div>
       <div id="query-status" class="status"></div>
@@ -40,12 +40,12 @@
 
     <section id="tab-chart" class="panel">
       <div class="chart-toolbar">
-        <input id="chart-search" class="input" placeholder="鎼滅储闊崇礌鎴栦緥璇?>
+        <input id="chart-search" class="input" placeholder="搜索音素或例词">
         <div class="segmented">
-          <button class="seg active" data-view="vowel">鍏冮煶</button>
-          <button class="seg" data-view="consonant">杈呴煶</button>
-          <button class="seg" data-view="diphthong">鍙屽厓闊?/button>
-          <button class="seg" data-view="ipa">缇庡紡闊虫爣琛?/button>
+          <button class="seg active" data-view="vowel">元音</button>
+          <button class="seg" data-view="consonant">辅音</button>
+          <button class="seg" data-view="diphthong">双元音</button>
+          <button class="seg" data-view="ipa">美式音标表</button>
         </div>
       </div>
       <div id="chart-body"></div>
@@ -54,49 +54,59 @@
     <section id="tab-library" class="panel">
       <div class="library-head">
         <div class="segmented" id="library-segments">
-          <button class="seg active" data-segment="history">鍘嗗彶</button>
-          <button class="seg" data-segment="wordbook">鐢熻瘝鏈?/button>
-          <button class="seg" data-segment="favorites">鏀惰棌</button>
+          <button class="seg active" data-segment="history">历史</button>
+          <button class="seg" data-segment="wordbook">生词本</button>
+          <button class="seg" data-segment="favorites">收藏</button>
         </div>
-        <button class="link" id="to-settings">瀵煎叆瀵煎嚭</button>
+        <button class="link" id="to-settings">导入导出</button>
       </div>
       <div id="library-body"></div>
     </section>
 
     <section id="tab-settings" class="panel">
       <div class="card">
-        <h3>瑙嗚椋庢牸</h3>
+        <h3>视觉风格</h3>
         <div class="chips" id="theme-row">
-          <button class="chip" data-theme="light">A 娓呯埥</button>
-          <button class="chip" data-theme="paper">B 绾歌川</button>
-          <button class="chip" data-theme="dark">C 鏆楄壊</button>
-          <button class="chip" data-theme="auto">D 璺熼殢绯荤粺</button>
+          <button class="chip" data-theme="light">A 清爽</button>
+          <button class="chip" data-theme="paper">B 纸质</button>
+          <button class="chip" data-theme="dark">C 暗色</button>
+          <button class="chip" data-theme="auto">D 跟随系统</button>
         </div>
       </div>
 
       <div class="card">
-        <h3>瀵煎嚭</h3>
+        <h3>导出</h3>
         <div class="chips" id="export-scopes">
-          <label class="check"><input type="checkbox" value="wordbook" checked> 鐢熻瘝鏈?/label>
-          <label class="check"><input type="checkbox" value="history" checked> 鍘嗗彶</label>
-          <label class="check"><input type="checkbox" value="favorites" checked> 鏀惰棌</label>
+          <label class="check"><input type="checkbox" value="wordbook" checked> 生词本</label>
+          <label class="check"><input type="checkbox" value="history" checked> 历史</label>
+          <label class="check"><input type="checkbox" value="favorites" checked> 收藏</label>
         </div>
         <div class="chips">
           <label class="check"><input type="radio" name="format" value="json" checked> JSON</label>
           <label class="check"><input type="radio" name="format" value="csv"> CSV</label>
         </div>
-        <button id="export-btn" class="btn primary">涓嬭浇瀵煎嚭鏂囦欢</button>
+        <button id="export-btn" class="btn primary">下载导出文件</button>
       </div>
 
       <div class="card">
-        <h3>瀵煎叆</h3>
-        <button id="import-btn" class="btn">閫夋嫨鏂囦欢</button>
+        <h3>导入</h3>
+        <button id="import-btn" class="btn">选择文件</button>
         <div id="import-info" class="muted"></div>
       </div>
 
       <div class="card">
-        <h3>鏁版嵁</h3>
-        <button id="clear-btn" class="btn danger">娓呯┖鍏ㄩ儴鏁版嵁</button>
+        <h3>音素音频</h3>
+        <div id="audio-status" class="muted">检查中…</div>
+        <div class="chips">
+          <button id="audio-download-all" class="btn primary">一键下载全部</button>
+          <button id="audio-clear" class="btn">清除本地音频</button>
+        </div>
+        <div id="audio-progress" class="muted"></div>
+      </div>
+
+      <div class="card">
+        <h3>数据</h3>
+        <button id="clear-btn" class="btn danger">清空全部数据</button>
       </div>
     </section>
   </main>
@@ -105,23 +115,25 @@
     <div class="modal-backdrop" data-close></div>
     <div class="modal-card">
       <div class="modal-head">
-        <button id="modal-symbol" class="modal-symbol" type="button" title="鎾斁闊崇礌"></button>
-        <button class="icon" data-close>脳</button>
+        <button id="modal-symbol" class="modal-symbol" type="button" title="播放音素"></button>
+        <button class="icon" data-close>×</button>
       </div>
       <div id="modal-tip" class="modal-tip"></div>
-      <div class="modal-title">渚嬭瘝</div>
+      <div class="modal-title">例词</div>
       <div id="modal-examples"></div>
-      <div class="modal-title">甯歌鎷煎啓</div>
+      <div class="modal-title">常见拼写</div>
       <div id="modal-spell" class="muted"></div>
       <div class="modal-actions">
-        <button id="modal-play" class="btn primary">鎾斁闊崇礌</button>
-        <button id="modal-chart" class="btn">鍦ㄩ煶绱犺〃涓煡鐪?/button>
+        <button id="modal-play" class="btn primary">播放音素</button>
+        <button id="modal-download" class="btn">下载到本地</button>
+        <button id="modal-chart" class="btn">在音素表中查看</button>
       </div>
+      <div id="modal-audio-status" class="muted"></div>
     </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="app.bundle.js?v=6"></script>
+  <script src="app.bundle.js?v=7"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () {
