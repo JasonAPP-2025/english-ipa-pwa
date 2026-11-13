@@ -1551,17 +1551,19 @@ ${body}` : ""}`;
     favorite: false,
     phonemes: [],
     phonemeMap: {},
-    chartView: "grid",
+    chartView: "vowel",
     chartKeyword: "",
     librarySegment: "history",
     library: { history: [], wordbook: [], favorites: [] },
     pendingImport: null,
     modalSymbol: "",
+    currentSplit: null,
     theme: "light"
   };
   var $ = (selector) => document.querySelector(selector);
   var $$ = (selector) => Array.from(document.querySelectorAll(selector));
   var analyzer = null;
+  var wordSplits = null;
   function getAnalyzer() {
     if (!analyzer) {
       analyzer = createAnalyzer({
@@ -1575,6 +1577,16 @@ ${body}` : ""}`;
       });
     }
     return analyzer;
+  }
+  async function loadWordSplits() {
+    if (wordSplits) return wordSplits;
+    try {
+      const response = await fetch("data/word-splits.json");
+      wordSplits = response.ok ? await response.json() : {};
+    } catch (error) {
+      wordSplits = {};
+    }
+    return wordSplits;
   }
   function esc(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => {
@@ -1642,57 +1654,135 @@ ${body}` : ""}`;
       state.phonemeMap[item.symbol] = item;
     });
   }
+  var CONSONANT_ROWS = [
+    { key: "plosive", label: "\u7206\u7834\u97F3" },
+    { key: "fricative", label: "\u6469\u64E6\u97F3" },
+    { key: "affricate", label: "\u7834\u64E6\u97F3" },
+    { key: "nasal", label: "\u9F3B\u97F3" },
+    { key: "approximant", label: "\u8FD1\u97F3" }
+  ];
+  var CONSONANT_COLS = [
+    { key: "bilabial", label: "\u53CC\u5507" },
+    { key: "labiodental", label: "\u5507\u9F7F" },
+    { key: "dental", label: "\u9F7F" },
+    { key: "alveolar", label: "\u9F7F\u9F88" },
+    { key: "postalveolar", label: "\u9F88\u540E" },
+    { key: "palatal", label: "\u786C\u816D" },
+    { key: "velar", label: "\u8F6F\u816D" },
+    { key: "labialvelar", label: "\u5507\u8F6F\u816D" },
+    { key: "glottal", label: "\u58F0\u95E8" }
+  ];
+  var VOWEL_ROWS = [
+    { key: "high", label: "\u9AD8" },
+    { key: "mid", label: "\u4E2D" },
+    { key: "low", label: "\u4F4E" }
+  ];
+  var VOWEL_COLS = [
+    { key: "front", label: "\u524D Front" },
+    { key: "central", label: "\u4E2D Central" },
+    { key: "back", label: "\u540E Back" }
+  ];
+  function cellButton(item, extraClass) {
+    return `<button class="ipa-cell ${extraClass || ""}" data-symbol="${esc(
+      item.symbol
+    )}"><b>${esc(item.symbol)}</b><span>${esc(
+      item.examples[0].en
+    )}</span></button>`;
+  }
+  function renderVowel(items) {
+    const monophthongs = items.filter(
+      (item) => item.chart.row !== "r-colored" && item.chart.row !== "diphthong"
+    );
+    const rows = VOWEL_ROWS.map((row) => {
+      const cells = VOWEL_COLS.map((col) => {
+        const cellItems = monophthongs.filter(
+          (item) => item.chart.row === row.key && (item.chart.col === col.key || col.key === "central" && item.chart.col === "central-r")
+        );
+        return `<div class="vowel-cell">${cellItems.map((item) => cellButton(item)).join("")}</div>`;
+      }).join("");
+      return `<div class="vowel-row"><span class="vowel-label">${row.label}</span>${cells}</div>`;
+    }).join("");
+    return `<div class="vowel-wrap">
+    <div class="vowel-head"><span></span>${VOWEL_COLS.map(
+      (col) => `<span>${col.label}</span>`
+    ).join("")}</div>
+    ${rows}
+    <div class="vowel-note">r \u97F3\u8282\u548C\u53CC\u5143\u97F3\u5728\u300C\u53CC\u5143\u97F3\u300D\u6807\u7B7E</div>
+  </div>`;
+  }
+  function renderConsonantMatrix(items) {
+    const head = CONSONANT_COLS.map((col) => `<th>${col.label}</th>`).join("");
+    const body = CONSONANT_ROWS.map((row) => {
+      const cells = CONSONANT_COLS.map((col) => {
+        const cellItems = items.filter(
+          (item) => item.type === "consonant" && item.chart.row === row.key && item.chart.col === col.key
+        );
+        return `<td>${cellItems.map((item) => cellButton(item)).join("")}</td>`;
+      }).join("");
+      return `<tr><th>${row.label}</th>${cells}</tr>`;
+    }).join("");
+    return `<div class="matrix-scroll">
+    <table class="matrix">
+      <thead><tr><th></th>${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+  }
+  function renderDiphthongs(items) {
+    const groups = [
+      { key: "diphthong", title: "\u53CC\u5143\u97F3 Diphthongs" },
+      { key: "r-colored", title: "r \u97F3\u8282 R-colored" }
+    ];
+    return groups.map((group) => {
+      const list = items.filter(
+        (item) => item.type === "vowel" && item.chart.row === group.key
+      );
+      if (!list.length) return "";
+      return `<div class="group"><div class="group-title">${group.title}</div><div class="grid">${list.map((item) => cellButton(item)).join("")}</div></div>`;
+    }).join("");
+  }
+  function renderIpaTable(items) {
+    const groups = [
+      { key: "consonant", title: "\u8F85\u97F3 Consonants" },
+      { key: "vowel", title: "\u5143\u97F3 Vowels" }
+    ];
+    return `<div class="ipa-table">${groups.map((group) => {
+      const list = items.filter((item) => item.type === group.key);
+      if (!list.length) return "";
+      return `<div class="group"><div class="group-title">${group.title}</div>${list.map(
+        (item) => `<div class="row">
+            <span class="symbol">${esc(item.symbol)}</span>
+            <span class="example-word">${esc(item.examples[0].en)}</span>
+            <span class="spelling">${esc(item.spellText)}</span>
+          </div>`
+      ).join("")}</div>`;
+    }).join("")}</div>`;
+  }
   function renderChart() {
     const keyword = state.chartKeyword.toLowerCase();
     const filtered = state.phonemes.filter((item) => {
       if (!keyword) return true;
       return item.symbol.toLowerCase().includes(keyword) || item.examples.some((example) => example.en.toLowerCase().includes(keyword));
     });
-    const groups = [
-      { key: "consonant", title: "\u8F85\u97F3 Consonants" },
-      { key: "vowel", title: "\u5143\u97F3 Vowels" }
-    ].map((group) => ({
-      ...group,
-      items: filtered.filter((item) => item.type === group.key)
-    })).filter((group) => group.items.length);
     const body = $("#chart-body");
-    if (!groups.length) {
+    if (!filtered.length) {
       body.innerHTML = '<div class="empty">\u6CA1\u6709\u5339\u914D\u7684\u97F3\u7D20</div>';
       return;
     }
-    if (state.chartView === "grid") {
-      body.innerHTML = groups.map(
-        (group) => `
-        <div class="group">
-          <div class="group-title">${group.title}</div>
-          <div class="grid">
-            ${group.items.map(
-          (item) => `
-                <button class="cell" data-symbol="${esc(item.symbol)}">
-                  <span class="symbol">${esc(item.symbol)}</span>
-                  <span class="example-word">${esc(item.examples[0].en)}</span>
-                </button>`
-        ).join("")}
-          </div>
-        </div>`
-      ).join("");
+    let html;
+    if (keyword) {
+      html = `<div class="group"><div class="group-title">\u641C\u7D22\u7ED3\u679C</div><div class="grid">${filtered.map((item) => cellButton(item)).join("")}</div></div>`;
+    } else if (state.chartView === "consonant") {
+      html = renderConsonantMatrix(filtered);
+    } else if (state.chartView === "diphthong") {
+      html = renderDiphthongs(filtered);
+    } else if (state.chartView === "ipa") {
+      html = renderIpaTable(filtered);
     } else {
-      body.innerHTML = `<div class="ipa-table">${groups.map(
-        (group) => `
-        <div class="group">
-          <div class="group-title">${group.title}</div>
-          ${group.items.map(
-          (item) => `
-              <div class="row">
-                <span class="symbol">${esc(item.symbol)}</span>
-                <span class="example-word">${esc(item.examples[0].en)}</span>
-                <span class="spelling">${esc(item.spellText)}</span>
-              </div>`
-        ).join("")}
-        </div>`
-      ).join("")}</div>`;
+      html = renderVowel(filtered);
     }
-    body.querySelectorAll(".cell").forEach((cell) => {
+    body.innerHTML = html;
+    body.querySelectorAll("[data-symbol]").forEach((cell) => {
       cell.addEventListener("click", () => openPhoneme(cell.dataset.symbol));
     });
   }
@@ -1714,6 +1804,11 @@ ${body}` : ""}`;
     ).join("");
     $("#modal-spell").textContent = item.spellText;
     $("#phoneme-modal").classList.remove("hidden");
+    playPhoneme(symbol);
+  }
+  function playPhoneme(symbol) {
+    const item = state.phonemeMap[symbol];
+    if (!item) return;
     audio.play(item.audio, {
       onError: () => audio.play(audio.youdaoUrl(item.examples[0].en))
     });
@@ -1723,15 +1818,19 @@ ${body}` : ""}`;
   }
   function highlightPhoneme(symbol) {
     closeModal();
+    const item = state.phonemeMap[symbol];
+    const view = item && item.type === "consonant" ? "consonant" : item && ["r-colored", "diphthong"].indexOf(item.chart.row) >= 0 ? "diphthong" : "vowel";
     state.chartKeyword = "";
-    state.chartView = "grid";
+    state.chartView = view;
     $("#chart-search").value = "";
     $$(".seg[data-view]").forEach((button) => {
-      button.classList.toggle("active", button.dataset.view === "grid");
+      button.classList.toggle("active", button.dataset.view === view);
     });
     switchTab("chart");
     renderChart();
-    const cell = $$(".cell").find((item) => item.dataset.symbol === symbol);
+    const cell = $$("[data-symbol]").find(
+      (entry) => entry.dataset.symbol === symbol
+    );
     if (cell) {
       cell.classList.add("highlight");
       cell.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1782,8 +1881,84 @@ ${body}` : ""}`;
       ${word.ipaUK ? `<span class="ipa uk">UK /${esc(word.ipaUK)}/</span>` : ""}
     </div>
     ${word.guessed ? '<div class="notice">\u97F3\u6807\u4E3A\u89C4\u5219\u63A8\u6D4B</div>' : ""}
+    <div id="word-split"></div>
     ${meanings}
   </div>`;
+  }
+  async function renderSplitCard(word) {
+    const container = $("#word-split");
+    if (!container) return;
+    const expected = String(word).toLowerCase();
+    const data = (await loadWordSplits())[expected];
+    if (!state.result || !state.result.word || String(state.result.word.text).toLowerCase() !== expected) {
+      return;
+    }
+    if (!data || !data.chunks || !data.chunks.length) {
+      container.innerHTML = "";
+      state.currentSplit = null;
+      return;
+    }
+    state.currentSplit = data;
+    const letters = data.chunks.map(
+      (chunk, index) => `<span class="split-grapheme ${chunk.silent ? "silent" : ""} ${index % 2 ? "alt" : ""}" data-ipa="${esc(chunk.ipa)}" title="\u64AD\u653E ${esc(
+        chunk.grapheme
+      )}">${esc(chunk.grapheme)}</span>`
+    ).join("");
+    const chips = data.chunks.filter((chunk) => !chunk.silent && chunk.ipa).map(
+      (chunk) => `<button class="split-chip" data-ipa="${esc(chunk.ipa)}"><b>${esc(
+        chunk.grapheme
+      )}</b><span>/${esc(chunk.ipa)}/</span></button>`
+    ).join("");
+    container.innerHTML = `<div class="split-card">
+    <div class="split-head">
+      <span class="split-word">${letters}</span>
+      <span class="split-ipa">/${esc(data.ipa)}/</span>
+      ${data.approximate ? '<span class="split-guess">\u63A8\u6D4B</span>' : ""}
+    </div>
+    <div class="split-chips">${chips}</div>
+    <div class="split-actions">
+      <button class="btn primary" data-split-playall>\u64AD\u653E\u5168\u90E8</button>
+    </div>
+  </div>`;
+  }
+  function playPhonemes(ipa, handlers) {
+    const options = handlers || {};
+    const tokens = tokenizeIpa(ipa).filter((part) => part.type === "phoneme");
+    let index = 0;
+    const next = () => {
+      if (index >= tokens.length) {
+        if (options.onEnd) options.onEnd();
+        return;
+      }
+      const symbol = tokens[index].symbol;
+      index += 1;
+      const item = state.phonemeMap[symbol];
+      if (!item) {
+        next();
+        return;
+      }
+      audio.play(item.audio, {
+        onEnd: next,
+        onError: next
+      });
+    };
+    next();
+  }
+  function playSplitAll() {
+    const data = state.currentSplit;
+    if (!data) return;
+    const chunks = (data.chunks || []).filter((chunk) => !chunk.silent && chunk.ipa);
+    let index = 0;
+    const next = () => {
+      if (index >= chunks.length) {
+        if (state.result && state.result.word) playWord(state.result.word.text);
+        return;
+      }
+      const chunk = chunks[index];
+      index += 1;
+      playPhonemes(chunk.ipa, { onEnd: next });
+    };
+    next();
   }
   function renderExamples(result) {
     const items = result.examples || [];
@@ -1817,6 +1992,10 @@ ${body}` : ""}`;
       ${result.type === "word" ? renderExamples(result) : ""}
     </div>`;
     $("#result").innerHTML = html;
+    state.currentSplit = null;
+    if (result.type === "word" && result.word) {
+      renderSplitCard(result.word.text);
+    }
   }
   async function doAnalyze(force = false) {
     const input = $("#input");
@@ -1915,6 +2094,16 @@ ${body}` : ""}`;
           onError: () => toast("\u6717\u8BFB\u6682\u4E0D\u53EF\u7528")
         });
       }
+      return;
+    }
+    const split = event.target.closest("[data-ipa]");
+    if (split) {
+      playPhonemes(split.dataset.ipa);
+      return;
+    }
+    const splitAll = event.target.closest("[data-split-playall]");
+    if (splitAll) {
+      playSplitAll();
       return;
     }
     const action = event.target.closest("[data-action]");
@@ -2109,6 +2298,12 @@ ${body}` : ""}`;
       if (example) {
         audio.play(audio.youdaoUrl(example.dataset.text));
       }
+    });
+    $("#modal-symbol").addEventListener("click", () => {
+      if (state.modalSymbol) playPhoneme(state.modalSymbol);
+    });
+    $("#modal-play").addEventListener("click", () => {
+      if (state.modalSymbol) playPhoneme(state.modalSymbol);
     });
     $("#modal-chart").addEventListener("click", () => {
       if (state.modalSymbol) highlightPhoneme(state.modalSymbol);

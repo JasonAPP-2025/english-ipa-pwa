@@ -42,7 +42,9 @@
       <div class="chart-toolbar">
         <input id="chart-search" class="input" placeholder="搜索音素或例词">
         <div class="segmented">
-          <button class="seg active" data-view="grid">交互音素表</button>
+          <button class="seg active" data-view="vowel">元音</button>
+          <button class="seg" data-view="consonant">辅音</button>
+          <button class="seg" data-view="diphthong">双元音</button>
           <button class="seg" data-view="ipa">美式音标表</button>
         </div>
       </div>
@@ -103,7 +105,7 @@
     <div class="modal-backdrop" data-close></div>
     <div class="modal-card">
       <div class="modal-head">
-        <span id="modal-symbol" class="modal-symbol"></span>
+        <button id="modal-symbol" class="modal-symbol" type="button" title="播放音素"></button>
         <button class="icon" data-close>×</button>
       </div>
       <div id="modal-tip" class="modal-tip"></div>
@@ -111,7 +113,10 @@
       <div id="modal-examples"></div>
       <div class="modal-title">常见拼写</div>
       <div id="modal-spell" class="muted"></div>
-      <button id="modal-chart" class="btn primary">在音素表中查看</button>
+      <div class="modal-actions">
+        <button id="modal-play" class="btn primary">播放音素</button>
+        <button id="modal-chart" class="btn">在音素表中查看</button>
+      </div>
     </div>
   </div>
 
