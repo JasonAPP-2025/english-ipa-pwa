@@ -1,9 +1,9 @@
-const CACHE_NAME = "english-ipa-v8";
+const CACHE_NAME = "english-ipa-v9";
 const CORE_ASSETS = [
   "./",
   "index.html",
-  "style.css?v=8",
-  "app.bundle.js?v=8",
+  "style.css?v=9",
+  "app.bundle.js?v=9",
   "manifest.webmanifest",
   "data/word-splits.json",
   "icons/icon-180.png",
