@@ -930,7 +930,7 @@ ${body}` : ""}`;
     "src/services/import-export.js"(exports, module) {
       var { toCsv, parseCsv } = require_csv();
       var APP = "learn_English";
-      var VERSION = 1;
+      var VERSION2 = 1;
       var COLUMNS = [
         "dataset",
         "type",
@@ -958,7 +958,7 @@ ${body}` : ""}`;
         });
         return {
           app: APP,
-          version: VERSION,
+          version: VERSION2,
           exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
           data: dataOut
         };
@@ -1150,7 +1150,7 @@ ${body}` : ""}`;
       }
       module.exports = {
         APP,
-        VERSION,
+        VERSION: VERSION2,
         COLUMNS,
         DATASETS,
         buildPayload,
@@ -1531,6 +1531,13 @@ ${body}` : ""}`;
     }
   });
 
+  // src/version.js
+  var require_version = __commonJS({
+    "src/version.js"(exports, module) {
+      module.exports = { VERSION: "2026.11.13" };
+    }
+  });
+
   // src/app.js
   var { createAnalyzer } = require_analyze();
   var { createG2P } = require_g2p();
@@ -1545,6 +1552,7 @@ ${body}` : ""}`;
   var { exportFile, pickTextFile } = require_capacitor();
   var { PHONEMES } = require_phonemes();
   var cmudict = require_cmudict_min();
+  var { VERSION } = require_version();
   var state = {
     tab: "query",
     result: null,
@@ -2310,6 +2318,8 @@ ${body}` : ""}`;
     });
   }
   function init() {
+    const version = $("#brand-version");
+    if (version) version.textContent = `v${VERSION}`;
     initTheme();
     loadPhonemes();
     bindEvents();

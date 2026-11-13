@@ -1,9 +1,9 @@
-const CACHE_NAME = "english-ipa-v4";
+﻿const CACHE_NAME = "english-ipa-v6";
 const CORE_ASSETS = [
   "./",
   "index.html",
-  "style.css?v=4",
-  "app.bundle.js?v=4",
+  "style.css?v=6",
+  "app.bundle.js?v=6",
   "manifest.webmanifest",
   "data/word-splits.json",
   "icons/icon-180.png",
@@ -25,7 +25,7 @@ self.addEventListener("install", (event) => {
           files.map((name) => `audio/phonemes/${name}`)
         );
       } catch (error) {
-        // 音频清单失败不阻塞安装，音频仍可在线播放
+        // 闊抽娓呭崟澶辫触涓嶉樆濉炲畨瑁咃紝闊抽浠嶅彲鍦ㄧ嚎鎾斁
       }
       await self.skipWaiting();
     })()
