@@ -18,6 +18,9 @@
         if (!value) {
           return null;
         }
+        if (/[\u4e00-\u9fff]/.test(value) && !/[A-Za-z]/.test(value)) {
+          return "chinese";
+        }
         if (!/\s/.test(value) && /^[A-Za-z][A-Za-z'’-]*$/.test(value)) {
           return "word";
         }
@@ -90,9 +93,12 @@
         const ecdict = deps.ecdict;
         const cache2 = deps.cache;
         const now = deps.now || (() => Date.now());
-        async function translateSafe(text) {
+        async function translateSafe(text, from, to) {
           try {
-            const result = await translator.translate(text);
+            const result = await translator.translate(
+              text,
+              from ? { from, to: to || "en" } : void 0
+            );
             return { text: result.text, failed: false };
           } catch (error) {
             return { text: "", failed: true };
@@ -206,6 +212,22 @@
             meta
           };
         }
+        async function analyzeChinese(text, meta) {
+          const translated = await translateSafe(text, "zh-CN", "en");
+          meta.sources.push("mymemory-zh");
+          if (translated.failed || !translated.text) {
+            return { ok: false, error: "TRANSLATE_FAILED" };
+          }
+          const english = translated.text;
+          const result = await analyzeSentence(english, meta);
+          const back = result.translation;
+          result.type = "translation";
+          result.input = text;
+          result.english = english;
+          result.translation = english;
+          result.backTranslation = back === FALLBACK_TRANSLATION ? "" : back;
+          return result;
+        }
         async function analyze(event) {
           const startedAt = now();
           const text = normalizeText(event && event.text);
@@ -234,7 +256,10 @@
             }
           }
           const meta = emptyMeta();
-          const result = type === "word" ? await analyzeWord(text, meta) : await analyzeSentence(text, meta);
+          const result = type === "word" ? await analyzeWord(text, meta) : type === "chinese" ? await analyzeChinese(text, meta) : await analyzeSentence(text, meta);
+          if (!result.ok) {
+            return result;
+          }
           result.meta.elapsedMs = now() - startedAt;
           const degraded = meta.translateError || meta.dictionaryError || !result.translation || result.translation === FALLBACK_TRANSLATION;
           if (cache2 && !degraded) {
@@ -1332,7 +1357,35 @@ ${body}` : ""}`;
         };
         next();
       }
-      module.exports = { youdaoUrl, baiduUrl, splitForTts, play, playChunks };
+      function playWords(words, handlers) {
+        const options = handlers || {};
+        const list = (words || []).filter(Boolean);
+        if (!list.length) {
+          if (options.onError) options.onError(new Error("EMPTY_WORDS"));
+          return;
+        }
+        const token = stopCurrent();
+        let index = 0;
+        const next = () => {
+          if (token !== generation) return;
+          if (index >= list.length) {
+            if (options.onEnd) options.onEnd();
+            return;
+          }
+          const word = list[index];
+          index += 1;
+          startAudio(youdaoUrl(word), { onEnd: next, onError: next }, token);
+        };
+        next();
+      }
+      module.exports = {
+        youdaoUrl,
+        baiduUrl,
+        splitForTts,
+        play,
+        playChunks,
+        playWords
+      };
     }
   });
 
@@ -1723,7 +1776,7 @@ ${body}` : ""}`;
   // src/version.js
   var require_version = __commonJS({
     "src/version.js"(exports, module) {
-      module.exports = { VERSION: "11.2026.11.23" };
+      module.exports = { VERSION: "12.2026.11.23" };
     }
   });
 
@@ -1769,7 +1822,7 @@ ${body}` : ""}`;
           lookupWord: (word) => lookupWord(word, { fetchJson })
         },
         translator: {
-          translate: (text) => translate.translate(text, { fetchJson })
+          translate: (text, options) => translate.translate(text, Object.assign({ fetchJson }, options || {}))
         },
         g2p: createG2P(cmudict)
       });
@@ -2184,12 +2237,15 @@ ${body}` : ""}`;
     const degraded = result.meta && (result.meta.translateError || result.meta.dictionaryError);
     const html = `
     <div class="result-card">
+      ${result.type === "translation" ? `<div class="translation-source">\u4E2D\u6587\uFF1A${esc(result.input)}</div>` : ""}
       <div class="translation">${esc(result.translation || "\u6682\u65E0\u7FFB\u8BD1")}</div>
+      ${result.type === "translation" ? '<div class="translation-note">\u70B9\u51FB\u4E0B\u65B9\u4EFB\u610F\u5355\u8BCD\u53EF\u5355\u72EC\u6717\u8BFB</div>' : ""}
       ${result.meta && result.meta.translateError ? '<div class="notice">\u514D\u8D39\u7FFB\u8BD1\u989D\u5EA6\u53EF\u80FD\u5DF2\u7528\u5C3D\uFF0C\u53EF\u7A0D\u540E\u91CD\u8BD5</div>' : ""}
       ${result.meta && result.meta.dictionaryError ? '<div class="notice">\u8BCD\u5178\u670D\u52A1\u6682\u4E0D\u53EF\u7528\uFF0C\u97F3\u6807\u4E3A\u89C4\u5219\u63A8\u6D4B</div>' : ""}
       ${renderIpaLine(result.tokens)}
       <div class="actions">
         <button class="btn" data-action="sentence">\u6717\u8BFB\u6574\u53E5</button>
+        ${result.type === "translation" ? '<button class="btn" data-action="words">\u9010\u8BCD\u6717\u8BFB</button>' : ""}
         <button class="btn" data-action="favorite">\u6536\u85CF</button>
         ${result.type === "word" ? '<button class="btn" data-action="addword">\u52A0\u5165\u751F\u8BCD\u672C</button>' : ""}
         ${degraded ? '<button class="btn" data-action="retry">\u91CD\u8BD5</button>' : ""}
@@ -2207,7 +2263,7 @@ ${body}` : ""}`;
     const input = $("#input");
     let text = input.value.trim();
     if (!text) {
-      toast("\u8BF7\u8F93\u5165\u82F1\u6587\u5185\u5BB9");
+      toast("\u8BF7\u8F93\u5165\u82F1\u6587\u6216\u4E2D\u6587\u5185\u5BB9");
       return;
     }
     if (text.length > 500) {
@@ -2239,8 +2295,9 @@ ${body}` : ""}`;
     }
   }
   function errorText(code) {
-    if (code === "NO_ENGLISH") return "\u8BF7\u8F93\u5165\u82F1\u6587\u5185\u5BB9";
+    if (code === "NO_ENGLISH") return "\u8BF7\u8F93\u5165\u82F1\u6587\u6216\u4E2D\u6587\u5185\u5BB9";
     if (code === "TOO_LONG") return "\u5185\u5BB9\u8FC7\u957F\uFF0C\u6700\u591A 500 \u5B57\u7B26";
+    if (code === "TRANSLATE_FAILED") return "\u7FFB\u8BD1\u670D\u52A1\u6682\u4E0D\u53EF\u7528\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5";
     return "\u67E5\u8BE2\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5";
   }
   function playWord(text) {
@@ -2316,9 +2373,13 @@ ${body}` : ""}`;
     if (!action) return;
     const name = action.dataset.action;
     if (name === "sentence") {
-      audio.playChunks(state.result.input, {
+      audio.playChunks(state.result.english || state.result.input, {
         onError: () => toast("\u6717\u8BFB\u6682\u4E0D\u53EF\u7528")
       });
+    }
+    if (name === "words") {
+      const words = (state.result.tokens || []).filter((token) => token.kind === "word").map((token) => token.text);
+      audio.playWords(words, { onError: () => toast("\u6717\u8BFB\u6682\u4E0D\u53EF\u7528") });
     }
     if (name === "favorite") toggleFavorite();
     if (name === "addword") addWord();
