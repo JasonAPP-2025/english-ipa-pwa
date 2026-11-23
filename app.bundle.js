@@ -1208,6 +1208,10 @@ ${body}` : ""}`;
       }
       function stopCurrent() {
         generation += 1;
+        try {
+          if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+        } catch (error) {
+        }
         if (current) {
           current.onended = null;
           current.onerror = null;
@@ -1257,12 +1261,38 @@ ${body}` : ""}`;
         const token = stopCurrent();
         return startAudio(url, handlers, token);
       }
+      function speakWithDevice(text, onEnd, onError) {
+        if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
+          return false;
+        }
+        try {
+          const utterance = new SpeechSynthesisUtterance(String(text));
+          utterance.lang = "en-US";
+          utterance.rate = 0.95;
+          utterance.onend = () => {
+            if (onEnd) onEnd();
+          };
+          utterance.onerror = () => {
+            if (onError) onError(new Error("TTS_FAILED"));
+          };
+          speechSynthesis.cancel();
+          speechSynthesis.speak(utterance);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
       function playChunks(text, handlers) {
         const options = handlers || {};
         const chunks = splitForTts(text);
         const token = stopCurrent();
         let index = 0;
         let reported = false;
+        const report = (error) => {
+          if (token !== generation || reported) return;
+          reported = true;
+          if (options.onError) options.onError(error);
+        };
         const next = () => {
           if (token !== generation) return;
           if (index >= chunks.length) {
@@ -1271,21 +1301,34 @@ ${body}` : ""}`;
           }
           const chunk = chunks[index];
           index += 1;
-          startAudio(
-            baiduUrl(chunk),
-            {
-              onEnd: next,
-              onError: (error) => {
-                if (token !== generation) return;
-                if (!reported) {
-                  reported = true;
-                  if (options.onError) options.onError(error);
+          const urls = [baiduUrl(chunk), youdaoUrl(chunk)];
+          const attempt = (position) => {
+            if (token !== generation) return;
+            if (position >= urls.length) {
+              const started = speakWithDevice(
+                chunk,
+                next,
+                () => {
+                  report(new Error("TTS_FAILED"));
+                  next();
                 }
+              );
+              if (!started) {
+                report(new Error("TTS_UNSUPPORTED"));
                 next();
               }
-            },
-            token
-          );
+              return;
+            }
+            startAudio(
+              urls[position],
+              {
+                onEnd: next,
+                onError: () => attempt(position + 1)
+              },
+              token
+            );
+          };
+          attempt(0);
         };
         next();
       }
@@ -1680,7 +1723,7 @@ ${body}` : ""}`;
   // src/version.js
   var require_version = __commonJS({
     "src/version.js"(exports, module) {
-      module.exports = { VERSION: "10.2026.11.13" };
+      module.exports = { VERSION: "11.2026.11.23" };
     }
   });
 
