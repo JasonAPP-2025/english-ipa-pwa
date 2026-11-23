@@ -243,7 +243,8 @@
             return { ok: false, error: "NO_ENGLISH" };
           }
           const force = !!(event && event.force);
-          const key = cacheKey(text, type);
+          const provider = event && event.provider || "auto";
+          const key = cacheKey(text, `${type}:${provider}`);
           if (cache2 && !force) {
             const hit = await cache2.get(key);
             if (hit && hit.translation !== FALLBACK_TRANSLATION) {
@@ -629,13 +630,24 @@
   var require_translate = __commonJS({
     "src/services/translate.js"(exports, module) {
       var { fetchJson: fetchJson2 } = require_http();
-      var BASE = "https://api.mymemory.translated.net/get";
-      function translate2(text, deps) {
-        const options = deps || {};
-        const fetch2 = options.fetchJson || fetchJson2;
-        const from = options.from || "en";
-        const to = options.to || "zh-CN";
-        const url = `${BASE}?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+      var MYMEMORY_BASE = "https://api.mymemory.translated.net/get";
+      var TENCENT_URL = "https://transmart.qq.com/api/imt";
+      var TIMEOUT = 8e3;
+      function shortLang(code) {
+        return String(code || "").toLowerCase().startsWith("zh") ? "zh" : "en";
+      }
+      function fetchWithTimeout(url, options) {
+        if (typeof AbortController === "undefined") {
+          return fetch(url, options);
+        }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), TIMEOUT);
+        return fetch(url, Object.assign({}, options, { signal: controller.signal })).finally(
+          () => clearTimeout(timer)
+        );
+      }
+      function translateMymemory(text, from, to, fetch2) {
+        const url = `${MYMEMORY_BASE}?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
         return fetch2(url).then((data) => {
           const translated = data && data.responseData && data.responseData.translatedText;
           if (!translated || /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(translated)) {
@@ -644,7 +656,64 @@
           return { text: translated, provider: "mymemory" };
         });
       }
-      module.exports = { name: "mymemory", translate: translate2 };
+      async function translateTencent(text, from, to) {
+        const response = await fetchWithTimeout(TENCENT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            header: {
+              fn: "auto_translation",
+              session: "",
+              user: "",
+              client_key: "browser-chrome-110.0.0",
+              browser: "Chrome"
+            },
+            type: "plain",
+            model_category: "normal",
+            source: { lang: shortLang(from), text_list: [String(text)] },
+            target: { lang: shortLang(to) },
+            text_domain: "general"
+          })
+        });
+        if (!response.ok) {
+          throw new Error("TRANSLATE_FAILED");
+        }
+        const data = await response.json();
+        const translated = data && data.auto_translation && data.auto_translation[0] || "";
+        if (!translated) {
+          throw new Error("TRANSLATE_FAILED");
+        }
+        return { text: translated, provider: "tencent" };
+      }
+      var ORDER = ["tencent", "mymemory"];
+      function translate2(text, deps) {
+        const options = deps || {};
+        const from = options.from || "en";
+        const to = options.to || "zh-CN";
+        const fetch2 = options.fetchJson || fetchJson2;
+        const requested = options.provider || "auto";
+        const order = ORDER.includes(requested) ? [requested] : ORDER;
+        let lastError = null;
+        const attempt = (index) => {
+          if (index >= order.length) {
+            return Promise.reject(lastError || new Error("TRANSLATE_FAILED"));
+          }
+          const name = order[index];
+          const run = name === "tencent" ? translateTencent(text, from, to) : translateMymemory(text, from, to, fetch2);
+          return run.catch((error) => {
+            lastError = error;
+            return attempt(index + 1);
+          });
+        };
+        return attempt(0);
+      }
+      module.exports = {
+        name: "auto",
+        PROVIDERS: ORDER,
+        translate: translate2,
+        translateTencent,
+        translateMymemory
+      };
     }
   });
 
@@ -1776,7 +1845,7 @@ ${body}` : ""}`;
   // src/version.js
   var require_version = __commonJS({
     "src/version.js"(exports, module) {
-      module.exports = { VERSION: "12.2026.11.23" };
+      module.exports = { VERSION: "13.2026.11.23" };
     }
   });
 
@@ -1809,6 +1878,7 @@ ${body}` : ""}`;
     pendingImport: null,
     modalSymbol: "",
     currentSplit: null,
+    translationProvider: "auto",
     theme: "light"
   };
   var $ = (selector) => document.querySelector(selector);
@@ -1822,7 +1892,13 @@ ${body}` : ""}`;
           lookupWord: (word) => lookupWord(word, { fetchJson })
         },
         translator: {
-          translate: (text, options) => translate.translate(text, Object.assign({ fetchJson }, options || {}))
+          translate: (text, options) => translate.translate(
+            text,
+            Object.assign(
+              { fetchJson, provider: state.translationProvider },
+              options || {}
+            )
+          )
         },
         g2p: createG2P(cmudict)
       });
@@ -1885,6 +1961,20 @@ ${body}` : ""}`;
     };
     if (media.addEventListener) media.addEventListener("change", handler);
     else if (media.addListener) media.addListener(handler);
+  }
+  function applyProvider(provider) {
+    const allowed = ["auto", "tencent", "mymemory"];
+    const stored = allowed.includes(provider) ? provider : "auto";
+    state.translationProvider = stored;
+    localStorage.setItem("le_translate_provider", stored);
+    storage.saveSettings({ translationProvider: stored });
+    $$("#provider-row .chip").forEach((chip) => {
+      chip.classList.toggle("active", chip.dataset.provider === stored);
+    });
+  }
+  function initProvider() {
+    const saved = storage.loadSettings().translationProvider || localStorage.getItem("le_translate_provider") || "auto";
+    applyProvider(saved);
   }
   function switchTab(name) {
     state.tab = name;
@@ -2274,7 +2364,12 @@ ${body}` : ""}`;
     $("#analyze-btn").disabled = true;
     setStatus("\u6B63\u5728\u67E5\u8BE2\u2026");
     try {
-      const result = await getAnalyzer().analyze({ text, mode: "auto", force });
+      const result = await getAnalyzer().analyze({
+        text,
+        mode: "auto",
+        force,
+        provider: state.translationProvider
+      });
       if (!result.ok) {
         setStatus(errorText(result.error), true);
         return;
@@ -2549,6 +2644,9 @@ ${body}` : ""}`;
     $$("#theme-row .chip").forEach((chip) => {
       chip.addEventListener("click", () => applyTheme(chip.dataset.theme));
     });
+    $$("#provider-row .chip").forEach((chip) => {
+      chip.addEventListener("click", () => applyProvider(chip.dataset.provider));
+    });
     $("#export-btn").addEventListener("click", exportData);
     $("#import-btn").addEventListener("click", handleImport);
     $("#import-info").addEventListener("click", (event) => {
@@ -2631,6 +2729,7 @@ ${body}` : ""}`;
     const version = $("#brand-version");
     if (version) version.textContent = ` v${VERSION}`;
     initTheme();
+    initProvider();
     loadPhonemes();
     bindEvents();
     switchTab("query");
