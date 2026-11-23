@@ -685,7 +685,20 @@
         }
         return { text: translated, provider: "tencent" };
       }
-      var ORDER = ["tencent", "mymemory"];
+      async function translateYoudao(text) {
+        const url = "https://aidemo.youdao.com/trans?q=" + encodeURIComponent(text) + "&from=Auto&to=Auto";
+        const response = await fetchWithTimeout(url, { method: "GET" });
+        if (!response.ok) {
+          throw new Error("TRANSLATE_FAILED");
+        }
+        const data = await response.json();
+        const translated = data && data.errorCode === "0" && data.translation && data.translation[0] || "";
+        if (!translated) {
+          throw new Error("TRANSLATE_FAILED");
+        }
+        return { text: translated, provider: "youdao" };
+      }
+      var ORDER = ["tencent", "youdao", "mymemory"];
       function translate2(text, deps) {
         const options = deps || {};
         const from = options.from || "en";
@@ -699,7 +712,7 @@
             return Promise.reject(lastError || new Error("TRANSLATE_FAILED"));
           }
           const name = order[index];
-          const run = name === "tencent" ? translateTencent(text, from, to) : translateMymemory(text, from, to, fetch2);
+          const run = name === "tencent" ? translateTencent(text, from, to) : name === "youdao" ? translateYoudao(text) : translateMymemory(text, from, to, fetch2);
           return run.catch((error) => {
             lastError = error;
             return attempt(index + 1);
@@ -712,6 +725,7 @@
         PROVIDERS: ORDER,
         translate: translate2,
         translateTencent,
+        translateYoudao,
         translateMymemory
       };
     }
@@ -1845,7 +1859,7 @@ ${body}` : ""}`;
   // src/version.js
   var require_version = __commonJS({
     "src/version.js"(exports, module) {
-      module.exports = { VERSION: "13.2026.11.23" };
+      module.exports = { VERSION: "14.2026.11.23" };
     }
   });
 
@@ -1963,7 +1977,7 @@ ${body}` : ""}`;
     else if (media.addListener) media.addListener(handler);
   }
   function applyProvider(provider) {
-    const allowed = ["auto", "tencent", "mymemory"];
+    const allowed = ["auto", "tencent", "youdao", "mymemory"];
     const stored = allowed.includes(provider) ? provider : "auto";
     state.translationProvider = stored;
     localStorage.setItem("le_translate_provider", stored);

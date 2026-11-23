@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <title>English IPA · 英语学习</title>
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body class="theme-light">
   <header class="topbar">
@@ -80,9 +80,10 @@
         <div class="chips" id="provider-row">
           <button class="chip" data-provider="auto">自动（推荐）</button>
           <button class="chip" data-provider="tencent">腾讯</button>
+          <button class="chip" data-provider="youdao">有道</button>
           <button class="chip" data-provider="mymemory">MyMemory</button>
         </div>
-        <div class="muted">自动模式先试腾讯，失败再切 MyMemory</div>
+        <div class="muted">自动模式依次尝试：腾讯 → 有道 → MyMemory</div>
       </div>
 
       <div class="card">
@@ -144,7 +145,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="app.bundle.js?v=13"></script>
+  <script src="app.bundle.js?v=14"></script>
   <script>
     if ("serviceWorker" in navigator) {
       var hadController = !!navigator.serviceWorker.controller;
